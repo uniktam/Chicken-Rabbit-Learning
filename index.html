@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>魔法農場：找出隱藏的兔子！</title>
+    <style>
+        /* 🎨 CSS 視覺樣式與版面配置 */
+        :root {
+            --primary-green: #a8e6cf;
+            --dark-green: #3b8d68;
+            --farm-bg: #81c784;
+            --box-bg: #e0f2f1;
+            --text-color: #333;
+            --error-red: #d32f2f;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Comic Sans MS', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--primary-green);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            text-align: center;
+            padding: 10px;
+            background-color: var(--dark-green);
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        #level-badge {
+            background: #ffeb3b; color: #f57f17; padding: 2px 10px;
+            border-radius: 12px; font-size: 18px; border: 2px solid #fbc02d;
+        }
+
+        /* 📌 常駐任務看板 */
+        .quest-board {
+            background: #fff8e1; border: 4px dashed #ffb74d; margin: 10px 20px;
+            padding: 10px 15px; border-radius: 15px; display: flex;
+            flex-direction: column; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); z-index: 5;
+        }
+        .quest-text { font-size: 18px; font-weight: bold; color: #d84315; margin-bottom: 5px; }
+        .quest-visuals { display: flex; gap: 20px; align-items: center; width: 100%; justify-content: center; }
+        .visual-group { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: bold; background: rgba(255,255,255,0.7); padding: 5px 15px; border-radius: 20px; }
+        
+        .mini-icons { display: flex; gap: 3px; flex-wrap: wrap; max-width: 400px; }
+        .mini-head { width: 12px; height: 12px; background: white; border: 2px solid #ccc; border-radius: 50%; }
+        .mini-leg { width: 3px; height: 12px; background: #ff9800; border-radius: 2px; }
+
+        /* 主畫面佈局 */
+        .main-container { display: flex; flex: 1; flex-direction: row; overflow: hidden; }
+
+        /* 左側：魔法精靈提問框 */
+        .left-panel {
+            width: 35%; background-color: white; padding: 15px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1); display: flex;
+            flex-direction: column; z-index: 5; overflow-y: auto;
+        }
+        .sprite-box { display: flex; align-items: flex-start; margin-bottom: 10px; background: var(--box-bg); padding: 10px; border-radius: 15px; border: 3px solid #b2dfdb; }
+        .sprite-avatar { font-size: 40px; margin-right: 10px; animation: bounce 2s infinite ease-in-out; }
+        .dialogue { font-size: 17px; line-height: 1.5; font-weight: bold; margin-top: 5px; }
+        .control-area { display: flex; flex-direction: column; gap: 10px; font-size: 16px; background: #f9f9f9; padding: 15px; border-radius: 15px; border: 2px solid #eee; }
+        
+        .equation-row { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: bold; margin: 5px 0; background: #e3f2fd; padding: 10px; border-radius: 10px; }
+        input[type="number"] { width: 45px; font-size: 18px; padding: 5px; text-align: center; border: 2px solid #1976d2; border-radius: 8px; background: #fff; }
+        
+        button { background-color: #ffb74d; border: none; padding: 10px 15px; font-size: 16px; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 0 #f57c00; transition: transform 0.1s, box-shadow 0.1s; }
+        button:active { transform: translateY(4px); box-shadow: 0 0 0 #f57c00; }
+        button.action-btn { background-color: #4caf50; box-shadow: 0 4px 0 #388e3c; color: white; }
+        button.action-btn:active { box-shadow: 0 0 0 #388e3c; }
+
+        .error-msg { color: var(--error-red); font-size: 15px; font-weight: bold; min-height: 22px; margin-top: 5px; }
+
+        /* 右側：農場主畫面 */
+        .right-panel { width: 65%; background-color: var(--farm-bg); position: relative; display: flex; flex-direction: column; align-items: center; padding: 10px; overflow-y: auto; }
+        
+        /* 針對多頭的自適應草地 */
+        .grass-area { flex: 1; width: 100%; display: flex; justify-content: center; align-content: flex-start; gap: 15px; flex-wrap: wrap; padding-top: 20px; }
+
+        /* 動物繪製 (尺寸微調以容納15隻) */
+        .animal { display: flex; flex-direction: column; align-items: center; position: relative; opacity: 0; transform: scale(0); transition: all 0.4s; margin-bottom: 10px; }
+        .animal.show { opacity: 1; transform: scale(1); }
+        .ears { font-size: 24px; position: absolute; top: -20px; opacity: 0; transition: opacity 0.5s; z-index: 1; }
+        .animal.is-rabbit .ears { opacity: 1; }
+        
+        .head { width: 55px; height: 55px; background-color: white; border-radius: 50%; border: 3px solid #eee; box-shadow: 0 4px 8px rgba(0,0,0,0.2); display: flex; justify-content: center; align-items: center; font-size: 28px; z-index: 2; }
+        .legs-container { display: flex; justify-content: center; gap: 6px; margin-top: -8px; min-height: 30px; }
+        .leg { width: 5px; height: 30px; background-color: #ff9800; border-radius: 3px; opacity: 0; transition: opacity 0.3s; }
+        .leg.show { opacity: 1; }
+
+        /* 備用腳腳箱 (自適應高度以容納50隻腳) */
+        .spare-box-area { min-height: 100px; height: auto; width: 95%; background: #8d6e63; border: 5px solid #5d4037; border-radius: 15px; margin-bottom: 10px; padding: 25px 10px 10px 10px; display: flex; flex-direction: column; align-items: center; position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); box-sizing: border-box; }
+        .box-title { color: white; font-weight: bold; position: absolute; top: -15px; background: #5d4037; padding: 2px 10px; border-radius: 5px; }
+        .spare-legs-container { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+        
+        /* 獨立的備用腳 */
+        .box-leg { width: 6px; height: 35px; background-color: #ffb74d; border-radius: 3px; border: 1px solid #e65100; transition: all 0.5s; }
+        .box-leg.used { opacity: 0; transform: translateY(-40px) scale(0); pointer-events: none; }
+
+        /* 互動成對樣式 */
+        .spare-leg-pair { display: flex; gap: 3px; cursor: pointer; padding: 5px; background: rgba(255,255,255,0.2); border-radius: 8px; transition: all 0.2s; }
+        .spare-leg-pair:hover { background: rgba(255,255,255,0.5); transform: scale(1.1); }
+        .spare-leg-pair .box-leg { margin: 0; }
+
+        .holding-magic { cursor: crosshair; }
+        .animal.interactive .head { cursor: pointer; box-shadow: 0 0 15px yellow; animation: pulse 1.5s infinite; }
+
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes pulse { 0% { box-shadow: 0 0 10px yellow; } 50% { box-shadow: 0 0 25px #ffeb3b; } 100% { box-shadow: 0 0 10px yellow; } }
+
+        /* 勝利大字報 */
+        #confetti-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 100; overflow: hidden; }
+        .confetti { position: absolute; width: 10px; height: 10px; top: -10px; animation: fall linear forwards; }
+        @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
+        .victory-banner { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 5px solid #ffca28; z-index: 50; transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); width: 80%; }
+        .victory-banner.show { transform: translate(-50%, -50%) scale(1); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <span id="level-badge">第一關</span>
+        ✨ 魔法農場：找出隱藏的兔子！🐰
+    </header>
+
+    <!-- 📌 常駐任務看板 -->
+    <div class="quest-board">
+        <div class="quest-text" id="quest-text">📖 題目：農場裡有小雞和兔子。數一數，總共有 5 個頭，14 隻腳。你知道，小雞和兔子分別有幾隻嗎？</div>
+        <div class="quest-visuals">
+            <div class="visual-group"><span id="target-heads-txt">目標頭數 (5)：</span><div class="mini-icons" id="quest-heads"></div></div>
+            <div class="visual-group"><span id="target-legs-txt">目標腳數 (14)：</span><div class="mini-icons" id="quest-legs"></div></div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- 左側控制區 -->
+        <div class="left-panel">
+            <div class="sprite-box">
+                <div class="sprite-avatar">🧚</div>
+                <div class="dialogue" id="dialogue-text">歡迎來到魔法農場！</div>
+            </div>
+            <div class="control-area" id="control-area"></div>
+            <div class="error-msg" id="error-msg"></div>
+        </div>
+
+        <!-- 右側農場區 -->
+        <div class="right-panel" id="farm">
+            <div class="grass-area" id="grass-area"></div>
+            <div class="spare-box-area" id="spare-box">
+                <div class="box-title" id="box-title">📦 腳腳百寶箱</div>
+                <div class="spare-legs-container" id="spare-legs"></div>
+            </div>
+
+            <!-- 過關字卡 -->
+            <div class="victory-banner" id="victory-banner">
+                <h1 style="color: #ff3d00; margin-top:0;">🎉 恭喜過關！ 🎉</h1>
+                <h2 style="color: #2e7d32;" id="victory-equation">2 隻兔子 + 3 隻小雞 = 14 隻腳</h2>
+                <p style="font-size: 18px;" id="victory-desc">你真是數學小天才！</p>
+                <div id="next-level-btn-area"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="confetti-container"></div>
+
+    <script>
+        // === 關卡設定 (Level Config) ===
+        const LEVELS = [
+            { id: 1, heads: 5, legs: 14, ansRabbit: 2, ansChicken: 3 },
+            { id: 2, heads: 15, legs: 50, ansRabbit: 10, ansChicken: 5 }
+        ];
+        let currentLevelIndex = 0;
+
+        // === 遊戲狀態參數 ===
+        let TOTAL_HEADS, TOTAL_LEGS, ANS_RABBIT, ANS_CHICKEN;
+        let holdingLegs = false; 
+        let rabbitsCount = 0;
+
+        // === DOM 元素選取 ===
+        const dialogueText = document.getElementById('dialogue-text');
+        const controlArea = document.getElementById('control-area');
+        const errorMsg = document.getElementById('error-msg');
+        const grassArea = document.getElementById('grass-area');
+        const spareLegsContainer = document.getElementById('spare-legs');
+        const boxTitle = document.getElementById('box-title');
+        const victoryBanner = document.getElementById('victory-banner');
+
+        // === 初始化/載入關卡 ===
+        function loadLevel(index) {
+            currentLevelIndex = index;
+            const config = LEVELS[index];
+            TOTAL_HEADS = config.heads;
+            TOTAL_LEGS = config.legs;
+            ANS_RABBIT = config.ansRabbit;
+            ANS_CHICKEN = config.ansChicken;
+            
+            holdingLegs = false;
+            rabbitsCount = 0;
+            document.body.classList.remove('holding-magic');
+
+            // 關閉勝利字卡、清除碎紙花
+            victoryBanner.classList.remove('show');
+            document.getElementById('confetti-container').innerHTML = '';
+            grassArea.innerHTML = '';
+            spareLegsContainer.innerHTML = '';
+
+            // 更新 UI 標籤
+            document.getElementById('level-badge').innerText = index === 0 ? "第一關" : "第二關🔥";
+            document.getElementById('quest-text').innerText = `📖 題目：農場裡有小雞和兔子。數一數，總共有 ${TOTAL_HEADS} 個頭，${TOTAL_LEGS} 隻腳。你知道，小雞和兔子分別有幾隻嗎？`;
+            document.getElementById('target-heads-txt').innerText = `目標頭數 (${TOTAL_HEADS})：`;
+            document.getElementById('target-legs-txt').innerText = `目標腳數 (${TOTAL_LEGS})：`;
+
+            // 生成看板迷你頭腳
+            let headsHTML = '', legsHTML = '';
+            for(let i=0; i<TOTAL_HEADS; i++) headsHTML += `<div class="mini-head"></div>`;
+            for(let i=0; i<TOTAL_LEGS; i++) legsHTML += `<div class="mini-leg"></div>`;
+            document.getElementById('quest-heads').innerHTML = headsHTML;
+            document.getElementById('quest-legs').innerHTML = legsHTML;
+
+            // 百寶箱實體腳
+            for(let i=0; i<TOTAL_LEGS; i++) {
+                spareLegsContainer.innerHTML += `<div class="box-leg" id="box-leg-${i}"></div>`;
+            }
+            boxTitle.innerText = `📦 腳腳百寶箱 (${TOTAL_LEGS}隻)`;
+
+            renderStep(1);
+        }
+
+        function showError(msg) {
+            errorMsg.innerText = msg;
+            errorMsg.style.animation = 'none';
+            setTimeout(() => errorMsg.style.animation = 'bounce 0.5s', 10);
+        }
+
+        // === 步驟 1：召喚頭 ===
+        function renderStep(step) {
+            errorMsg.innerText = ''; 
+            if (step === 1) {
+                dialogueText.innerHTML = `第一步：請幫我把 <b>${TOTAL_HEADS} 個頭</b> 召喚到草地上！`;
+                controlArea.innerHTML = `<button class="action-btn" onclick="actionSummonHeads()">✨ 召喚 ${TOTAL_HEADS} 個頭</button>`;
+            }
+        }
+
+        function actionSummonHeads() {
+            grassArea.innerHTML = '';
+            for (let i = 0; i < TOTAL_HEADS; i++) {
+                const animal = document.createElement('div');
+                animal.className = 'animal';
+                animal.innerHTML = `
+                    <div class="ears">🐰</div>
+                    <div class="head"></div>
+                    <div class="legs-container">
+                        <div class="leg leg-1"></div><div class="leg leg-2"></div>
+                        <div class="leg leg-3"></div><div class="leg leg-4"></div>
+                    </div>
+                `;
+                grassArea.appendChild(animal);
+                // 依序出現動畫 (數量多時加快速度)
+                let delay = currentLevelIndex === 0 ? 150 : 80;
+                setTimeout(() => animal.classList.add('show'), i * delay);
+            }
+            let totalDelay = currentLevelIndex === 0 ? (TOTAL_HEADS * 150 + 500) : (TOTAL_HEADS * 80 + 500);
+            setTimeout(() => step2a_VisualFirst(), totalDelay);
+        }
+
+        // === 步驟 2a：看圖 (先長出腳) ===
+        function step2a_VisualFirst() {
+            errorMsg.innerText = '';
+            dialogueText.innerHTML = `第二步：我們假設這 ${TOTAL_HEADS} 隻『全部』都是小雞！<br>請點擊下方按鈕，從箱子發給牠們小雞的腳。`;
+            controlArea.innerHTML = `<button class="action-btn" onclick="actionGiveChickenLegs()">🐔 全部分配 2 隻腳</button>`;
+        }
+
+        function actionGiveChickenLegs() {
+            const legsToUse = TOTAL_HEADS * 2;
+            const animSpeed = currentLevelIndex === 0 ? 100 : 30; // 數量多時腳飛快一點
+            
+            // 從箱子移除腳
+            for(let i=0; i<legsToUse; i++) {
+                setTimeout(() => document.getElementById(`box-leg-${i}`).classList.add('used'), i * animSpeed);
+            }
+            
+            // 長出雞腳
+            setTimeout(() => {
+                document.querySelectorAll('.animal').forEach(animal => {
+                    animal.querySelector('.head').innerText = '🐔';
+                    animal.querySelector('.leg-1').classList.add('show');
+                    animal.querySelector('.leg-2').classList.add('show');
+                });
+                boxTitle.innerText = `📦 腳腳百寶箱 (剩餘 ${TOTAL_LEGS - legsToUse}隻)`;
+                
+                setTimeout(() => step2b_WriteMath(), 800);
+            }, legsToUse * animSpeed + 200);
+        }
+
+        // === 步驟 2b：列式 (乘法) ===
+        function step2b_WriteMath() {
+            dialogueText.innerHTML = `你剛才發給了 ${TOTAL_HEADS} 隻小雞，每隻 2 隻腳。總共用了幾隻腳？<br>請根據你<b>看到的畫面</b>，列出乘法算式！`;
+            controlArea.innerHTML = `
+                <div style="font-size:14px; color:#666; text-align:center;">(提示：頭數 × 雞腳數 = 用掉的腳數)</div>
+                <div class="equation-row">
+                    <input type="number" id="s2-n1"> × 
+                    <input type="number" id="s2-n2"> = 
+                    <input type="number" id="s2-ans">
+                </div>
+                <button onclick="checkStep2Math()">📝 檢查算式</button>
+            `;
+        }
+
+        function checkStep2Math() {
+            const n1 = parseInt(document.getElementById('s2-n1').value);
+            const n2 = parseInt(document.getElementById('s2-n2').value);
+            const ans = parseInt(document.getElementById('s2-ans').value);
+            const correctAns = TOTAL_HEADS * 2;
+
+            if ((n1 === TOTAL_HEADS && n2 === 2 && ans === correctAns) || (n1 === 2 && n2 === TOTAL_HEADS && ans === correctAns)) {
+                step3_Subtraction();
+            } else {
+                if (n1 !== TOTAL_HEADS && n2 !== TOTAL_HEADS) showError(`不對喔！草地上面有『幾隻小雞』呢？(是 ${TOTAL_HEADS} 隻喔)`);
+                else if (n1 !== 2 && n2 !== 2) showError("不對喔！每一隻小雞分到了『幾隻腳』呢？");
+                else if (ans !== correctAns) showError("算式列對了，但乘法答案算錯囉！數數看草地上的腳。");
+                else showError("算式不太對喔，請填入正確的數字！");
+            }
+        }
+
+        // === 步驟 3：看剩餘的腳並列式 (減法) ===
+        function step3_Subtraction() {
+            errorMsg.innerText = '';
+            const usedLegs = TOTAL_HEADS * 2;
+            dialogueText.innerHTML = `第三步：原本有 ${TOTAL_LEGS} 隻腳，剛才用掉了 ${usedLegs} 隻。<br>請看著箱子裡<b>剩下的腳</b>，列出減法算式，算出剩下幾隻腳。`;
+            controlArea.innerHTML = `
+                <div style="font-size:14px; color:#666; text-align:center;">(提示：全部的腳 - 用掉的腳 = 剩下的腳)</div>
+                <div class="equation-row">
+                    <input type="number" id="s3-n1"> - 
+                    <input type="number" id="s3-n2"> = 
+                    <input type="number" id="s3-ans">
+                </div>
+                <button onclick="checkStep3Math()">📝 檢查算式</button>
+            `;
+        }
+
+        function checkStep3Math() {
+            const n1 = parseInt(document.getElementById('s3-n1').value);
+            const n2 = parseInt(document.getElementById('s3-n2').value);
+            const ans = parseInt(document.getElementById('s3-ans').value);
+            const usedLegs = TOTAL_HEADS * 2;
+            const remainLegs = TOTAL_LEGS - usedLegs;
+
+            if (n1 === TOTAL_LEGS && n2 === usedLegs && ans === remainLegs) {
+                step4_Interactive(remainLegs);
+            } else {
+                if (n1 !== TOTAL_LEGS) showError(`不對喔！箱子『原本』裝了幾隻腳？(提示：看板上的 ${TOTAL_LEGS})`);
+                else if (n2 !== usedLegs) showError(`不對喔！我們剛剛分給小雞『幾隻腳』呢？(${usedLegs})`);
+                else if (ans !== remainLegs) showError("減法算錯囉！數數看箱子裡剩下的腳。");
+                else showError("算式不太對喔，請再想想！");
+            }
+        }
+
+        // === 步驟 4：互動邏輯 ===
+        function step4_Interactive(remainLegs) {
+            errorMsg.innerText = '';
+            dialogueText.innerHTML = `第四步：請將剩下的腳分給草地上的「小雞」，把它們變身成兔子！`;
+            controlArea.innerHTML = `
+                <p style="font-size:15px; color:var(--dark-green); margin:0;">💡 提示：點擊下方箱子裡的腳，再點小雞的頭。</p>
+                <div id="hand-status" style="font-size:16px; color:#ff9800; font-weight:bold; margin-top:5px; text-align:center;">手中狀態：空</div>
+            `;
+            
+            spareLegsContainer.innerHTML = ''; 
+            const pairsCount = remainLegs / 2;
+            for (let i = 0; i < pairsCount; i++) {
+                const pair = document.createElement('div');
+                pair.className = 'spare-leg-pair';
+                pair.innerHTML = `<div class="box-leg"></div><div class="box-leg"></div>`;
+                pair.onclick = () => takeLegs(pair);
+                spareLegsContainer.appendChild(pair);
+            }
+
+            document.querySelectorAll('.animal').forEach(animal => {
+                animal.classList.add('interactive');
+                animal.querySelector('.head').onclick = () => giveLegsToAnimal(animal);
+            });
+        }
+
+        function takeLegs(pairElement) {
+            if (holdingLegs) return showError("手上已經拿著腳囉！先點擊小雞分給牠。");
+            pairElement.remove();
+            holdingLegs = true;
+            document.getElementById('hand-status').innerText = '手中狀態：拿著 2 隻腳 🪄';
+            document.body.classList.add('holding-magic');
+            errorMsg.innerText = '';
+            
+            const remainingPairs = document.querySelectorAll('.spare-leg-pair').length;
+            boxTitle.innerText = `📦 腳腳百寶箱 (剩餘 ${remainingPairs * 2}隻)`;
+        }
+
+        function giveLegsToAnimal(animal) {
+            if (!holdingLegs) return showError("請先點擊下方的【腳腳百寶箱】拿出腳腳喔！");
+            if (animal.classList.contains('is-rabbit')) return showError("這隻已經是兔子囉！請選別隻。");
+
+            animal.classList.add('is-rabbit');
+            animal.querySelector('.head').innerText = '🐰';
+            animal.querySelector('.leg-3').classList.add('show');
+            animal.querySelector('.leg-4').classList.add('show');
+            animal.classList.remove('interactive');
+
+            holdingLegs = false;
+            rabbitsCount++;
+            document.getElementById('hand-status').innerText = '手中狀態：空';
+            document.body.classList.remove('holding-magic');
+            errorMsg.innerText = '';
+
+            const remainingPairs = document.querySelectorAll('.spare-leg-pair').length;
+            if (remainingPairs === 0 && !holdingLegs) {
+                document.getElementById('hand-status').innerText = '分配完成！箱子空了！';
+                setTimeout(() => step5_FinalCount(), 1000);
+            }
+        }
+
+        // === 步驟 5：最終盤點 ===
+        function step5_FinalCount() {
+            errorMsg.innerText = '';
+            dialogueText.innerHTML = `最後一步：魔法完成！<br>請看著農場告訴我最後的結果！`;
+            controlArea.innerHTML = `
+                <div class="equation-row">兔子有 <input type="number" id="ans-rabbit"> 隻</div>
+                <div class="equation-row">小雞有 <input type="number" id="ans-chicken"> 隻</div>
+                <button onclick="checkFinal()">✅ 提交答案</button>
+            `;
+        }
+
+        function checkFinal() {
+            const rabAns = parseInt(document.getElementById('ans-rabbit').value);
+            const chiAns = parseInt(document.getElementById('ans-chicken').value);
+
+            if (rabAns === ANS_RABBIT && chiAns === ANS_CHICKEN) {
+                // 設定勝利字卡內容
+                document.getElementById('victory-equation').innerText = `${ANS_RABBIT} 隻兔子(${ANS_RABBIT*4}腳) + ${ANS_CHICKEN} 隻小雞(${ANS_CHICKEN*2}腳) = ${TOTAL_LEGS} 隻腳`;
+                
+                // 判斷是否還有下一關
+                const btnArea = document.getElementById('next-level-btn-area');
+                if (currentLevelIndex === 0) {
+                    document.getElementById('victory-desc').innerText = "太棒了！準備好挑戰更難的第二關了嗎？";
+                    btnArea.innerHTML = `<button style="margin-top:15px; background-color:#ff5252; color:white;" onclick="loadLevel(1)">🔥 進入第二關</button>`;
+                } else {
+                    document.getElementById('victory-desc').innerText = "你完美通過了所有考驗！真正的數學大師！🏆";
+                    btnArea.innerHTML = `<button style="margin-top:15px; background-color:#4caf50; color:white;" onclick="loadLevel(0)">🔄 再玩一次</button>`;
+                }
+
+                victoryBanner.classList.add('show');
+                shootConfetti();
+            } else {
+                showError("數量不太對喔，請看著草地上的動物數數看！");
+            }
+        }
+
+        // === 碎紙花特效 ===
+        function shootConfetti() {
+            const container = document.getElementById('confetti-container');
+            const colors = ['#fce18a', '#ff726d', '#b48def', '#f4306d', '#a8e6cf'];
+            for (let i = 0; i < 120; i++) {
+                const confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                confetti.style.animationDelay = (Math.random() * 2) + 's';
+                if (Math.random() > 0.5) confetti.style.borderRadius = '50%';
+                container.appendChild(confetti);
+            }
+        }
+
+        // 啟動遊戲 (預設載入第一關)
+        window.onload = () => loadLevel(0);
+    </script>
+</body>
+</html>
